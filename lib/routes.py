@@ -1,8 +1,8 @@
 """
     App routes.
 """
+from collections import ChainMap
 from aiohttp import web
-
 from lib import uploader
 
 routes = web.RouteTableDef()
@@ -10,8 +10,9 @@ routes = web.RouteTableDef()
 @routes.post('/upload')
 async def upload_file(request):
     """Upload an image file and optional metadata into a temporary folder."""
-    queue = request.app['incoming']
-    files = uploader.extract(request, ('image', 'meta',))
-    queue.put_nowait([f async for f in files])
-    return web.Response()
-    
+    try:
+        data = ChainMap(*[p async for p in uploader.parse_request(request)])
+    except NameError as exc:
+        return web.HTTPBadRequest(reason=str(exc))
+    await request.app['incoming'].put(dict(data))
+    return web.HTTPOk(text='sha256:{sha256}'.format(**data))

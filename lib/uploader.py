@@ -1,48 +1,63 @@
 """
     File uploader routines.
 """
-from collections import namedtuple
+import hashlib
 from tempfile import NamedTemporaryFile
 
 import aiofiles
-import hashlib
-from aiohttp import MultipartReader
-
-File = namedtuple('File', ['type', 'hash', 'path'])
+import aiohttp
 
 
-async def save_binary_file(field):
-    """Upload a binary file, return temporary file name."""
-    with NamedTemporaryFile(mode='w+b', prefix=field.name + '_', delete=False) as f:
+async def handle_image(field):
+    """Handle an image file."""
+    with NamedTemporaryFile(mode='a', delete=False) as tmpfile:
+        pass
+    async with aiofiles.open(tmpfile.name, mode='wb') as f:
+        hash = hashlib.sha256()
         while True:
             chunk = await field.read_chunk()
             if not chunk:
                 break
-            f.write(chunk)
-    return f.name
+            hash.update(chunk)
+            await f.write(chunk)
+    return {'tmp': tmpfile.name, 'sha256': hash.hexdigest()}
 
 
-async def get_file_hash(fpath):
-    """Create output folders based on file's MD5 digest."""
-    chunk_size = 1024 << 1
-    md5 = hashlib.md5()
-    async with aiofiles.open(fpath, mode='rb') as f:
-        while True:
-            chunk = await f.read(chunk_size)
-            if not chunk:
-                break
-            md5.update(chunk)
-    return md5.hexdigest()
+async def handle_callback_url(field):
+    """Handle and validate the callback URL."""
+    raw = await field.read()
+    url = raw.decode('utf-8')
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.head(url) as resp:
+                if resp.status != 200:
+                    err = 'Unexpected callback response HTTP {}.'.format(resp.status)
+                    raise NameError(err)
+    except aiohttp.ClientConnectorError as exc:
+        raise NameError('Callback URL is not reachable: "{}".'.format(exc))
+    return {'callback_url': url}
 
 
-async def extract(request, fields):
+async def parse_request(request):
     """Extract fields from a multi-part request."""
     reader = await request.multipart()
+    res = []
+    handlers = {
+        'image': handle_image,
+        'callback_url': handle_callback_url,
+    }
+    field_names = handlers.keys()
     while True:
         field = await reader.next()
         if not field:
             break
-        if field.name in fields:
-            path = await save_binary_file(field)
-            digest = await get_file_hash(path)
-            yield File(field.name, digest, path)
+        handler = handlers.pop(field.name, None)
+        if not handler:
+            raise NameError((
+                'Invalid/redundand field name "{}". '
+                'Valid names are {}.'
+            ).format(field.name, ', '.join(field_names)))
+        yield await handler(field)
+    if handlers:
+        err = 'Missing required field(s): {}'.format(', '.join(handlers.keys()))
+        raise NameError(err)
