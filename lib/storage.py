@@ -7,11 +7,10 @@ from functools import partial
 from hashfs import HashFS
 
 
-async def put_file(fs, path):
+async def put_file(fs, path, ext):
     """Copy a disk file into the storage, return it's new address."""
-    # TODO: preserve file extension
     loop = asyncio.get_running_loop()
-    addr = await loop.run_in_executor(None, fs.put, path)
+    addr = await loop.run_in_executor(None, fs.put, path, ext)
     return addr.relpath
 
 

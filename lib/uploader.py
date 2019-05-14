@@ -2,17 +2,23 @@
     File uploader routines.
 """
 import hashlib
+import os
 from tempfile import NamedTemporaryFile
 
 import aiofiles
 import aiohttp
 
 
-async def handle_image(field):
-    """Handle an image file."""
+def get_tmpfile():
+    """Return a unique temporary file name."""
     with NamedTemporaryFile(mode='a', delete=False) as tmpfile:
-        pass
-    async with aiofiles.open(tmpfile.name, mode='wb') as f:
+        return tmpfile.name
+
+        
+async def handle_file(field):
+    """Handle a binary file."""
+    tmpfile = get_tmpfile()
+    async with aiofiles.open(tmpfile, mode='wb') as f:
         hash = hashlib.sha256()
         while True:
             chunk = await field.read_chunk()
@@ -20,7 +26,11 @@ async def handle_image(field):
                 break
             hash.update(chunk)
             await f.write(chunk)
-    return {'tmp': tmpfile.name, 'sha256': hash.hexdigest()}
+    return {
+        'tmp': tmpfile,
+        'sha256': hash.hexdigest(),
+        'ext': os.path.splitext(field.filename)[1],
+    }
 
 
 async def handle_callback_url(field):
@@ -43,7 +53,7 @@ async def parse_request(request):
     reader = await request.multipart()
     res = []
     handlers = {
-        'image': handle_image,
+        'file': handle_file,
         'callback_url': handle_callback_url,
     }
     field_names = handlers.keys()
