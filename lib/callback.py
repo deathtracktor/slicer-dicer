@@ -16,14 +16,14 @@ CALLBACK_RETRIES = (10, 120, 600,)
 async def send(callback_url, relpath, sha256, retries=iter(CALLBACK_RETRIES), **_):
     """Send a notification back to the requesting service."""
     payload = {
-        'url': urljoin(BASE_URL, relpath),
+        'url': urljoin(BASE_URL, *os.path.split(relpath)),
         'sha256': sha256,
     }
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(callback_url, data=payload) as resp:
                 assert resp.status == 200, 'HTTP {}'.format(resp.status)
-                logging.info('Callback for file "%s" sent to "%s".', relpath, callback_url)
+                logging.info('Callback for "%s" sent to "%s".', sha256, callback_url)
     except Exception as exc:
         delay = next(retries, False)
         if delay is False:
