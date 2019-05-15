@@ -3,6 +3,7 @@
 """
 import hashlib
 import os
+from contextlib import suppress
 from tempfile import NamedTemporaryFile
 
 import aiofiles
@@ -32,19 +33,21 @@ async def handle_file(field):
         'ext': os.path.splitext(field.filename)[1],
     }
 
+    
+async def send_head(url):
+    """Send a preflight check request."""
+    with suppress(aiohttp.ClientConnectorError):
+        async with aiohttp.ClientSession() as session:
+            async with session.head(url) as resp:
+                return resp.status == 200
 
+                
 async def handle_callback_url(field):
     """Handle and validate the callback URL."""
     raw = await field.read()
     url = raw.decode('utf-8')
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.head(url) as resp:
-                if resp.status != 200:
-                    err = 'Unexpected callback response HTTP {}.'.format(resp.status)
-                    raise NameError(err)
-    except aiohttp.ClientConnectorError as exc:
-        raise NameError('Callback URL is not reachable: "{}".'.format(exc))
+    if not await send_head(url):
+        raise NameError('Callback URL "{}" is not reachable.'.format(url))
     return {'callback_url': url}
 
 
