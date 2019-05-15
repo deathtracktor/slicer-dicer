@@ -30,7 +30,7 @@ async def handle_file(field):
     return {
         'tmp': tmpfile,
         'sha256': hash.hexdigest(),
-        'ext': os.path.splitext(field.filename)[1],
+        'ext': os.path.splitext(field.filename)[1].lower(),
     }
 
     
@@ -54,12 +54,11 @@ async def handle_callback_url(field):
 async def parse_request(request):
     """Extract fields from a multi-part request."""
     reader = await request.multipart()
-    res = []
     handlers = {
         'file': handle_file,
         'callback_url': handle_callback_url,
     }
-    field_names = handlers.keys()
+    required = handlers.keys()
     while True:
         field = await reader.next()
         if not field:
@@ -69,7 +68,7 @@ async def parse_request(request):
             raise NameError((
                 'Invalid/redundand field name "{}". '
                 'Valid names are {}.'
-            ).format(field.name, ', '.join(field_names)))
+            ).format(field.name, ', '.join(required)))
         yield await handler(field)
     if handlers:
         err = 'Missing required field(s): {}'.format(', '.join(handlers.keys()))
