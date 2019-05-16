@@ -28,6 +28,7 @@ async def send(callback_url, relpath, sha256, retries=iter(CALLBACK_RETRIES), **
         delay = next(retries, False)
         if delay is False:
             logging.critical('Callback "%s" failed, giving up.', callback_url)
+            return
         logging.info(
             'Callback "%s" failed: "%s", will retry in %ds...',
             callback_url, exc, delay
