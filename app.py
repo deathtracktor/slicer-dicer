@@ -27,7 +27,7 @@ async def process_incoming(incoming, processed):
             file = await incoming.get()
             relpath = await storage.put_file(file['tmp'], file['ext'])
             await processed.put(ChainMap(file, {'relpath': relpath}))
-            logging.info('"%(sha_256)s" added to storage.', file)
+            logging.info('"%(sha256)s" added to storage.', file)
             loop = asyncio.get_running_loop()
             loop.run_in_executor(None, os.remove, file['tmp'])
             await asyncio.sleep(1)
