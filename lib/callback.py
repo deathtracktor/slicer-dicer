@@ -16,7 +16,7 @@ CALLBACK_RETRIES = (10, 120, 600,)
 async def send(callback_url, relpath, sha256, retries=iter(CALLBACK_RETRIES), **_):
     """Send a notification back to the requesting service."""
     payload = {
-        'url': urljoin(BASE_URL, *os.path.split(relpath)),
+        'url': urljoin(BASE_URL, '/'.join(os.path.split(relpath))),
         'sha256': sha256,
     }
     try:
