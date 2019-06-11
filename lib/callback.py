@@ -4,6 +4,7 @@
 import asyncio
 import os
 import logging
+from pathlib import Path
 from urllib.parse import urljoin
 
 import aiohttp
@@ -16,14 +17,15 @@ CALLBACK_RETRIES = (10, 120, 600,)
 async def send(callback_url, relpath, sha256, retries=iter(CALLBACK_RETRIES), **_):
     """Send a notification back to the requesting service."""
     payload = {
-        'url': urljoin(BASE_URL, '/'.join(os.path.split(relpath))),
+        'url': urljoin(BASE_URL + '/', '/'.join(Path(relpath).parts)),
         'sha256': sha256,
     }
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(callback_url, data=payload) as resp:
                 assert resp.status == 200, 'HTTP {}'.format(resp.status)
-                logging.info('Callback for "%s" sent to "%s".', sha256, callback_url)
+                msg = 'Callback for "%s", "%s" sent to "%s".'
+                logging.info(msg, sha256, payload['url'], callback_url)
     except Exception as exc:
         delay = next(retries, False)
         if delay is False:
