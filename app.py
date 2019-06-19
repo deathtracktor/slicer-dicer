@@ -39,6 +39,7 @@ async def send_callback(queue):
         while True:
             file = await queue.get()
             await callback.send(**file)
+            await asyncio.sleep(1)
 
 
 async def start_background_tasks(app):
